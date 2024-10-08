@@ -1,6 +1,14 @@
 {
-  "publicgroups-PublicGroups.json": {
+  "public_groups-PublicGroups.json": {
     "contractName": "PublicGroups",
-    "hash": "82ca19d24bd840674beef91499d92e5dd5a81c177efd23635a8e16dd9eca977e"
+    "hash": "dde41d5a250b3b61f935f2cd48af2a3ab16b68bd4b9a07eb835702b1cc0fc41a"
+  },
+  "public_groups-PrivateGroups.json": {
+    "contractName": "PrivateGroups",
+    "hash": "d0c02c59d406da38d1fe062945a58264d62a04b142c90eee163c2e943f50bd6d"
+  },
+  "private_groups-PrivateGroups.json": {
+    "contractName": "PrivateGroups",
+    "hash": "cad76eeef0bfa515dfa4c6b4d7871f158fa3edb75565ed2691da01e3e46e19b4"
   }
 }
