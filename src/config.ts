@@ -7,36 +7,34 @@ import { PrivateGroupsContractArtifact } from "./contracts/src/artifacts/Private
 import { AccountManager } from "@aztec/aztec.js/account";
 import { SingleKeyAccountContract } from "@aztec/accounts/single_key";
 
-const SECRET_KEY = Fr.random();
-
 export class PublicEnv {
   pxe;
-  accountContract;
-  account: AccountManager;
 
-  constructor(
-    private secretKey: Fr,
-    private pxeURL: string
-  ) {
+  constructor(private pxeURL: string) {
     this.pxe = createPXEClient(this.pxeURL);
-    const encryptionPrivateKey =
-      deriveMasterIncomingViewingSecretKey(secretKey);
-    this.accountContract = new SingleKeyAccountContract(encryptionPrivateKey);
-    this.account = new AccountManager(
-      this.pxe,
-      this.secretKey,
-      this.accountContract
-    );
   }
 
-  async getWallet() {
-    // taking advantage that register is no-op if already registered
-    return await this.account.register();
+  async createNewWallet() {
+    // Generate a new secret key for each wallet
+    const secretKey = Fr.random();
+    const encryptionPrivateKey =
+      deriveMasterIncomingViewingSecretKey(secretKey);
+    const accountContract = new SingleKeyAccountContract(encryptionPrivateKey);
+
+    // Create a new AccountManager instance
+    const account = new AccountManager(this.pxe, secretKey, accountContract);
+
+    // Register the account and get the wallet
+    const wallet = await account.register(); // Returns AccountWalletWithSecretKey
+    console.log(
+      `Created new wallet with address: ${await wallet.getAddress()}`
+    );
+
+    return wallet; // Returns AccountWalletWithSecretKey
   }
 }
 
 export const deployerEnv = new PublicEnv(
-  SECRET_KEY,
   process.env.PXE_URL || "http://localhost:8080"
 );
 
