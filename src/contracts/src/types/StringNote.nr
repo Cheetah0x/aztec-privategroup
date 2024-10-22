@@ -1,11 +1,11 @@
 use dep::aztec::{
     protocol_types::{
-    address::AztecAddress, traits::Serialize, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
+    address::AztecAddress, traits::{Serialize, Deserialize}, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
     hash::poseidon2_hash_with_separator
 },
     macros::notes::note,
     note::{note_header::NoteHeader, note_interface::NullifiableNote, utils::compute_note_hash_for_nullify},
-    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
+    oracle::random::random, keys::getters::get_nsk_app, context::PrivateContext
 };
 
 //going to make the max length 10 characters just to keep it simple
@@ -49,7 +49,9 @@ impl NullifiableNote for StringNote {
 
 impl StringNote {
     pub fn new(string: Field, npk_m_hash: Field) -> Self {
-        let randomness = unsafe_rand();
+        let randomness = unsafe {
+            random()
+        };
         let header = NoteHeader::empty();
         StringNote { string, randomness, npk_m_hash, header }
     }

@@ -2,7 +2,7 @@ use dep::aztec::{
     hash::compute_secret_hash, prelude::AztecAddress,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     // protocol_types::storage::map::derive_storage_slot_in_map,
-    oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}
+    oracle::{execution::{get_block_number, get_contract_address}, random::random, storage::storage_read}
 };
 use dep::std::println;
 use crate::PrivateGroups;

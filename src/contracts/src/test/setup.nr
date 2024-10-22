@@ -8,12 +8,12 @@ use aztec::note::note_getter::NoteGetterOptions;
 use dep::aztec::hash::compute_secret_hash;
 use dep::aztec::{
     protocol_types::address::AztecAddress,
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
     keys::getters::get_public_keys,
     macros::{storage::storage, events::event, functions::{public, initializer, private, internal}}
 };
 
-use dep::aztec::{oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}};
+use dep::aztec::{oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read}};
 use crate::types::NewAddressNote::NewAddressNote;
 
 use dep::std::println;
@@ -22,13 +22,16 @@ use crate::PrivateGroups;
 #[test]
 unconstrained fn test_environment_setup() {
     let mut env = TestEnvironment::new();
+    env.advance_block_by(1);
     let account = env.create_account();
+    println(f"account: {account}");
     assert(!account.is_zero(), "Account creation failed");
 }
 
 #[test]
 unconstrained fn test_contract_deployment() {
     let ( env, private_group_contract, admin, alice, bob) = utils::setup();
+    env.advance_block_by(1);
     assert(!private_group_contract.is_zero(), "Contract not deployed");
 }
 
@@ -38,6 +41,7 @@ unconstrained fn get_Admin_unconstrained() {
 
     env.impersonate(private_group_contract);
     let unconstrained_context = env.unkonstrained();
+    env.advance_block_by(1);
 
     let storage = PrivateGroups::Storage::init(unconstrained_context);
 

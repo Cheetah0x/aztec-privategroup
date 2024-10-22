@@ -5,7 +5,7 @@ use dep::aztec::{
 },
     macros::notes::note,
     note::{note_header::NoteHeader, note_interface::NullifiableNote, utils::compute_note_hash_for_nullify},
-    oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
+    keys::getters::get_nsk_app, context::PrivateContext
 };
 
 global ADDRESS_NOTE_LEN: u32 = 3;

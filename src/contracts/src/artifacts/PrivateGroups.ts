@@ -28,6 +28,7 @@ import {
   NoteSelector,
   Point,
   type PublicKey,
+  PublicKeys,
   type UnencryptedL2Log,
   type Wallet,
   type WrappedFieldLike,
@@ -68,7 +69,7 @@ export class PrivateGroupsContract extends ContractBase {
     group_members: AztecAddressLike[]
   ) {
     return new DeployMethod<PrivateGroupsContract>(
-      Fr.ZERO,
+      PublicKeys.empty(),
       wallet,
       PrivateGroupsContractArtifact,
       PrivateGroupsContract.at,
@@ -79,14 +80,14 @@ export class PrivateGroupsContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKeysHash(
-    publicKeysHash: Fr,
+  public static deployWithPublicKeys(
+    publicKeys: PublicKeys,
     wallet: Wallet,
     admin: AztecAddressLike,
     group_members: AztecAddressLike[]
   ) {
     return new DeployMethod<PrivateGroupsContract>(
-      publicKeysHash,
+      publicKeys,
       wallet,
       PrivateGroupsContractArtifact,
       PrivateGroupsContract.at,
@@ -100,11 +101,11 @@ export class PrivateGroupsContract extends ContractBase {
   public static deployWithOpts<
     M extends keyof PrivateGroupsContract["methods"],
   >(
-    opts: { publicKeysHash?: Fr; method?: M; wallet: Wallet },
+    opts: { publicKeys?: PublicKeys; method?: M; wallet: Wallet },
     ...args: Parameters<PrivateGroupsContract["methods"][M]>
   ) {
     return new DeployMethod<PrivateGroupsContract>(
-      opts.publicKeysHash ?? Fr.ZERO,
+      opts.publicKeys ?? PublicKeys.empty(),
       opts.wallet,
       PrivateGroupsContractArtifact,
       PrivateGroupsContract.at,
@@ -218,6 +219,13 @@ export class PrivateGroupsContract extends ContractBase {
     read_balance_debt: ((
       debtor: AztecAddressLike,
       creditor: AztecAddressLike
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, "selector">;
+
+    /** read_total_balance(creditor: struct, debtor: struct) */
+    read_total_balance: ((
+      creditor: AztecAddressLike,
+      debtor: AztecAddressLike
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, "selector">;
 

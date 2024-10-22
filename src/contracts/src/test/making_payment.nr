@@ -8,12 +8,11 @@ use aztec::note::note_getter::NoteGetterOptions;
 use dep::aztec::hash::compute_secret_hash;
 use dep::aztec::{
     protocol_types::address::AztecAddress,
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
     keys::getters::get_public_keys,
     macros::{storage::storage, events::event, functions::{public, initializer, private, internal}}
 };
 
-use dep::aztec::{oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}};
+use dep::aztec::{oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read}};
 use crate::types::NewAddressNote::NewAddressNote;
 use value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
 
