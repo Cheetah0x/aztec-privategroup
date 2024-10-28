@@ -20,25 +20,6 @@ use dep::std::println;
 use crate::PrivateGroups;
 use std::hash::pedersen_hash;
 
-// finding a bug here, will let the guys know.
-
-// #[test]
-// unconstrained fn test_making_payment() {
-//     let ( env, private_group_contract, admin, alice, bob) = utils::setup();
-
-//     env.impersonate(admin);
-//     let set_balance_admin_alice_interface = PrivateGroups::at(private_group_contract).set_balance(admin, alice, 100);
-//     env.call_private_void(set_balance_admin_alice_interface);
-//     env.advance_block_by(1);
-
-//     // as soon as i try to impersonate alice it dies. wonder why this is 
-//     env.impersonate(alice);
-//     let make_payment_alice_admin_interface = PrivateGroups::at(private_group_contract).make_payment(alice, admin, 50);
-//     env.call_private_void(make_payment_alice_admin_interface);
-//     env.advance_block_by(1);
-
-   
-// }
 
 fn process_balance(balance: BoundedVec<ValueNote, 10>) -> Vec<ValueNote> {
     let mut result = Vec::new();
@@ -62,7 +43,6 @@ fn sum_value_notes(balance: BoundedVec<ValueNote, 10>) -> Field {
     total
 }
 
-//test the thing about recompiling before running the test
 
 // env.impersonate(private_group_contract);
 // let unconstrained_context = env.unkonstrained();

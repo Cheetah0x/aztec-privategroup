@@ -67,7 +67,7 @@ export default function Dashboard() {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">SplitWise Clone Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-6">SplitWise Aztec Note Firing</h1>
       <div className="grid gap-6 md:grid-cols-2">
         {!group ? (
           <GroupCreationCard

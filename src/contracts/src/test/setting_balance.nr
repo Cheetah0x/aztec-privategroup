@@ -19,6 +19,8 @@ use value_note::{balance_utils, utils::{increment, decrement}, value_note::Value
 use dep::std::println;
 use crate::PrivateGroups;
 use std::hash::pedersen_hash;
+use std::hash::poseidon2;
+
 
 //this is a way to individually get the notes, to help understanding
 
@@ -27,15 +29,11 @@ unconstrained fn test_making_payment1() {
     let ( env, private_group_contract, admin, alice, bob) = utils::setup();
 
     env.impersonate(admin);
-    let set_balance_admin_alice_interface = PrivateGroups::at(private_group_contract).set_balance(admin, alice, 100);
-    env.call_private_void(set_balance_admin_alice_interface);
+    let set_balance_admin_alice = PrivateGroups::at(private_group_contract).set_balance(admin, alice, 100).call(&mut env.private());
     env.advance_block_by(1);
 
-    //as soon as i try to impersonate alice it dies. wonder why this is 
-    //this was a memory thing i think
     env.impersonate(alice);
-    let make_payment_alice_admin_interface = PrivateGroups::at(private_group_contract).make_payment(alice, admin, 50);
-    env.call_private_void(make_payment_alice_admin_interface);
+    let make_payment_alice_admin = PrivateGroups::at(private_group_contract).make_payment(alice, admin, 50).call(&mut env.private());
     env.advance_block_by(1);
 
    
@@ -48,19 +46,11 @@ unconstrained fn test_setting_balance() {
 
     env.impersonate(admin);
     //set balance between admin and alice
-    // let amount : Field = 100;
-    let set_balance_admin_alice_interface = PrivateGroups::at(private_group_contract).set_balance(admin, alice, 100);
-    env.call_private_void(set_balance_admin_alice_interface);
+    let set_balance_admin_alice = PrivateGroups::at(private_group_contract).set_balance(admin, alice, 100).call(&mut env.private());
     env.advance_block_by(1);
 
-    // env.impersonate(alice);
-    // let set_balance_alice_admin_interface = PrivateGroups::at(private_group_contract).set_balance(alice, admin, 50);
-    // env.call_private_void(set_balance_alice_admin_interface);
-    // env.advance_block_by(1);
-
     env.impersonate(alice);
-    let set_balance_alice_admin_interface = PrivateGroups::at(private_group_contract).make_payment(alice, admin, 50);
-    env.call_private_void(set_balance_alice_admin_interface);
+    let make_payment_alice_admin = PrivateGroups::at(private_group_contract).make_payment(alice, admin, 50).call(&mut env.private());
     env.advance_block_by(1);
 
     env.impersonate(private_group_contract);
@@ -68,10 +58,14 @@ unconstrained fn test_setting_balance() {
     let storage = PrivateGroups::Storage::init(unconstrained_context);
     let options = NoteViewerOptions::new();
 
-    let key_credit_admin = pedersen_hash([admin.to_field(), alice.to_field()]);
-    let key_debt_admin = pedersen_hash([admin.to_field(), alice.to_field()]);
-    let key_credit_alice = pedersen_hash([alice.to_field(), admin.to_field()]);
-    let key_debt_alice = pedersen_hash([alice.to_field(), admin.to_field()]);
+    let hash_credit_admin = [admin.to_field(), alice.to_field()];
+    let key_credit_admin = poseidon2::Poseidon2::hash(hash_credit_admin, 2);
+    let hash_debt_admin = [admin.to_field(), alice.to_field()];
+    let key_debt_admin = poseidon2::Poseidon2::hash(hash_debt_admin, 2);
+    let hash_credit_alice = [alice.to_field(), admin.to_field()];
+    let key_credit_alice = poseidon2::Poseidon2::hash(hash_credit_alice, 2);
+    let hash_debt_alice = [alice.to_field(), admin.to_field()];
+    let key_debt_alice = poseidon2::Poseidon2::hash(hash_debt_alice, 2);
 
     let admin_balance_credit : BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = storage.group_balances_credit.at(key_credit_admin).view_notes(options);
     let admin_balance_debt : BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = storage.group_balances_debt.at(key_debt_admin).view_notes(options);
@@ -115,15 +109,13 @@ unconstrained fn setting_group_balance_fail() {
     //set balance between admin and alice
     let amount = 150;
     let debtors = [alice, bob];
-    let set_balance_admin_group_interface = PrivateGroups::at(private_group_contract).setup_group_payments(admin, debtors, amount);
-    env.call_private_void(set_balance_admin_group_interface);
+    let set_balance_admin_group = PrivateGroups::at(private_group_contract).setup_group_payments(admin, debtors, amount).call(&mut env.private());
     env.advance_block_by(1);
 
     env.impersonate(alice);
-    let read_balance_admin_alice_interface = PrivateGroups::at(private_group_contract).read_balance_credit(admin, alice);
-    let yolo : Field = env.call_private(read_balance_admin_alice_interface);
+    let read_balance_admin_alice = PrivateGroups::at(private_group_contract).read_balance_credit(admin, alice).call(&mut env.private());
     //returns value as hex
-    println(f"yolo: {yolo}");
+    println(f"yolo: {read_balance_admin_alice}");
 
     // //being able to do this in the TXE would be nice
 }
@@ -138,8 +130,7 @@ unconstrained fn setting_group_balance() {
     //set balance between admin and alice
     let amount : Field = 150;
     let debtors = [alice, bob];
-    let set_balance_admin_group_interface = PrivateGroups::at(private_group_contract).setup_group_payments(admin, debtors, amount);
-    env.call_private_void(set_balance_admin_group_interface);
+    let set_balance_admin_group = PrivateGroups::at(private_group_contract).setup_group_payments(admin, debtors, amount).call(&mut env.private());
     env.advance_block_by(1);
 
     //now i need to read the balances from storage
@@ -148,10 +139,20 @@ unconstrained fn setting_group_balance() {
     let storage = PrivateGroups::Storage::init(unconstrained_context);
     let options = NoteViewerOptions::new();
 
-    let admin_alice_credit: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = storage.group_balances_credit.at(pedersen_hash([admin.to_field(), alice.to_field()])).view_notes(options);
-    let admin_bob_credit: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = storage.group_balances_credit.at(pedersen_hash([admin.to_field(), bob.to_field()])).view_notes(options);
-    let alice_admin_debt: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = storage.group_balances_debt.at(pedersen_hash([alice.to_field(), admin.to_field()])).view_notes(options);
-    let bob_admin_debt: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = storage.group_balances_debt.at(pedersen_hash([bob.to_field(), admin.to_field()])).view_notes(options);
+    //hash functions using poseidon2
+    let hash_credit_admin_alice = [admin.to_field(), alice.to_field()];
+    let key_credit_admin_alice = poseidon2::Poseidon2::hash(hash_credit_admin_alice, 2);
+    let hash_credit_admin_bob = [admin.to_field(), bob.to_field()];
+    let key_credit_admin_bob = poseidon2::Poseidon2::hash(hash_credit_admin_bob, 2);
+    let hash_debt_alice_admin = [alice.to_field(), admin.to_field()];
+    let key_debt_alice_admin = poseidon2::Poseidon2::hash(hash_debt_alice_admin, 2);
+    let hash_debt_bob_admin = [bob.to_field(), admin.to_field()];
+    let key_debt_bob_admin = poseidon2::Poseidon2::hash(hash_debt_bob_admin, 2);
+
+    let admin_alice_credit: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = storage.group_balances_credit.at(key_credit_admin_alice).view_notes(options);
+    let admin_bob_credit: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = storage.group_balances_credit.at(key_credit_admin_bob).view_notes(options);
+    let alice_admin_debt: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = storage.group_balances_debt.at(key_debt_alice_admin).view_notes(options);
+    let bob_admin_debt: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = storage.group_balances_debt.at(key_debt_bob_admin).view_notes(options);
 
     let admin_alice_credit_notes = process_balance(admin_alice_credit);
     let admin_bob_credit_notes = process_balance(admin_bob_credit);
@@ -185,21 +186,19 @@ unconstrained fn multiple_group_balances() {
     //set balance between admin and alice
     let mut amount : Field = 150;
     let debtors = [alice, bob];
-    let set_balance_admin_group_interface = PrivateGroups::at(private_group_contract).setup_group_payments(admin, debtors, amount);
-    env.call_private_void(set_balance_admin_group_interface);
+    let set_balance_admin_group = PrivateGroups::at(private_group_contract).setup_group_payments(admin, debtors, amount).call(&mut env.private());
+    env.advance_block_by(1);
 
     env.impersonate(alice);
     amount = 210;
     let debtors = [admin, bob];
-    let set_balance_alice_group_interface = PrivateGroups::at(private_group_contract).setup_group_payments(alice, debtors, amount);
-    env.call_private_void(set_balance_alice_group_interface);
+    let set_balance_alice_group = PrivateGroups::at(private_group_contract).setup_group_payments(alice, debtors, amount).call(&mut env.private());
     env.advance_block_by(1);
 
     env.impersonate(bob);
     amount = 300;
     let debtors = [admin, alice];
-    let set_balance_bob_group_interface = PrivateGroups::at(private_group_contract).setup_group_payments(bob, debtors, amount);
-    env.call_private_void(set_balance_bob_group_interface);
+    let set_balance_bob_group = PrivateGroups::at(private_group_contract).setup_group_payments(bob, debtors, amount).call(&mut env.private());
     env.advance_block_by(1);
 
     env.impersonate(private_group_contract);

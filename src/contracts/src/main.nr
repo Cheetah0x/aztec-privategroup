@@ -1,3 +1,21 @@
+//TODO:: add the token transfer, have tests for that too. 
+//add block time to storage for notes being paid
+
+//This is just a demo contract of how you could make a Splitwise like contract on Aztec
+// During the exploration phase, the way this is done is by sending lots of notes to the members of the group.
+//This is very expensive to do so, and is not scalable, especially as the size of the group grows.
+
+//The next exploration is using a shared account contract which others can register in their PXE.
+
+//This is expensive in terms of the gate count, which increases the cost and the proving time of the functions withint the contract.
+//The main constraints on the Aztec network.
+
+//This will be used for the purpose of showing the cost of certain functions within the contract. 
+//How different design patterns can be used to optimize the cost of the contract. 
+
+//Hopefully this can be used as an example for pepople building contracts on Aztec. 
+
+
 mod types;
 mod test;
 
@@ -17,14 +35,16 @@ contract PrivateGroups {
     use crate::types::NewAddressNote::NewAddressNote;
     use aztec::note::note_getter::NoteGetterOptions;
     use value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
-    use std::hash::pedersen_hash;
+    use std::hash::poseidon2;
     use aztec::context::inputs::private_context_inputs::PrivateContextInputs;
 
     global ZERO_ADDRESS: AztecAddress = AztecAddress::from_field(0x0000000000000000000000000000000000000000000000000000000000000000);
 
-    //Storage for the contract, we have an admin that creates the group, they add members to the group, and they can add notes to the group
-    //The reason there is a credit and a debt is for note tracking.
-
+    //Contract Storage
+    // - `admin`: The admin who creates and manages the group
+    // - `group_members`: A map of group members, each with a private set of other group members so they can see all members
+    // - `group_balances_credit`: A map of balances owed to the creditor, stored with a unique key for each creditor and debtor pair
+    // - `group_balances_debt`: A map of balances owed by the debtor, stored with a unique key for each debtor and creditor pair
     #[storage]
    struct Storage<Context> {
         admin: PrivateImmutable<NewAddressNote, Context>,
@@ -33,12 +53,10 @@ contract PrivateGroups {
         group_balances_debt: Map<Field, PrivateSet<ValueNote, Context>, Context>,
    }
 
-    //The Constructor
-    // - Admin creates the group
-    // - Admin adds members to the group
-    // - Each group member is added to a private set of members so that they can see all of the members
-    // - This is very expensive, highlights some of the inefficiencies of the current system
-    // - Since the 0.57 update, this cannot compile, it uses too much memory. I have to get rid of the group member logic which doesnt allow for access gating
+    // Contract Constructor:
+    // - The admin creates the group and initializes group members.
+    // - Each group member is added to the private set, allowing them to see other members.
+    // - This operation can be expensive due to encryption and note handling for each member.
     #[private]
     #[initializer]
     fn constructor(admin: AztecAddress, group_members: [AztecAddress; 3]) {
@@ -63,7 +81,8 @@ contract PrivateGroups {
         }
     }
 
-    //need to constrain this so that only group members can read this 
+    // Retrieves the admin's address.
+    // for testing purposes, only the admin can read this.
     #[private]
     fn get_admin() -> pub AztecAddress {
         let admin_note = storage.admin.get_note();
@@ -91,12 +110,14 @@ contract PrivateGroups {
         //TODO:: add assertions here to make sure that the creditor and debtor are part of the group
 
         //notes for the creditor
-        let key_credit = pedersen_hash([creditor.to_field(), debtor.to_field()]);
+        let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
+        let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
         let loc_credit = storage.group_balances_credit.at(key_credit);
         increment(loc_credit, amount, creditor, debtor);
 
         // notes for the debtor
-        let key_debt = pedersen_hash([debtor.to_field(), creditor.to_field()]);
+        let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
+        let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
         let loc_debt = storage.group_balances_debt.at(key_debt);
         increment(loc_debt, amount, debtor, creditor);
     }
@@ -110,12 +131,14 @@ contract PrivateGroups {
         let new_amount = amount * -1;
 
         //notes for the creditor
-        let key_credit = pedersen_hash([creditor.to_field(), debtor.to_field()]);
+        let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
+        let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
         let loc_credit = storage.group_balances_credit.at(key_credit);
         increment(loc_credit, new_amount, creditor, debtor);
 
         // notes for the debtor
-        let key_debt = pedersen_hash([debtor.to_field(), creditor.to_field()]);
+        let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
+        let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
         let loc_debt = storage.group_balances_debt.at(key_debt);
         increment(loc_debt, new_amount, debtor, creditor);
     }
@@ -128,15 +151,17 @@ contract PrivateGroups {
         let shared_amount : u32 = amount as u32 / (debtors.len() + 1);
         for i in 0..2 {
             let debtor = debtors[i];
-            let key = pedersen_hash([creditor.to_field(), debtor.to_field()]);
-            let loc_credit = storage.group_balances_credit.at(key);
+            let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
+            let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
+            let loc_credit = storage.group_balances_credit.at(key_credit);
             increment(loc_credit, shared_amount.to_field(), creditor, debtor);
         }
         //increase the debt for each member with the creditor
         for i in 0..2 {
             let debtor = debtors[i];
-            let key = pedersen_hash([debtor.to_field(), creditor.to_field()]);
-            let loc_debt = storage.group_balances_debt.at(key);
+            let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
+            let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
+            let loc_debt = storage.group_balances_debt.at(key_debt);
             increment(loc_debt, shared_amount.to_field(), debtor, creditor);
         }
     }
@@ -148,9 +173,10 @@ contract PrivateGroups {
         //make a new one with the new outstanding balance
         //tricky part is listening for new notes that the debtor has sent, updating the balance
 
-        let key = pedersen_hash([creditor.to_field(), debtor.to_field()]);
+        let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
+        let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
         let options = NoteGetterOptions::new();
-        let balance_notes_credit: BoundedVec<ValueNote, 16> = storage.group_balances_credit.at(key).get_notes(options);
+        let balance_notes_credit: BoundedVec<ValueNote, 16> = storage.group_balances_credit.at(key_credit).get_notes(options);
 
         let mut total_balance = 0 as Field;
         for i in 0..balance_notes_credit.max_len() {
@@ -165,9 +191,10 @@ contract PrivateGroups {
 
     #[private]
     fn read_balance_debt(debtor: AztecAddress, creditor: AztecAddress) -> u64 {
-        let key = pedersen_hash([debtor.to_field(), creditor.to_field()]);
+        let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
+        let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
         let options = NoteGetterOptions::new();
-        let balance_notes_debt: BoundedVec<ValueNote, 16> = storage.group_balances_debt.at(key).get_notes(options);
+        let balance_notes_debt: BoundedVec<ValueNote, 16> = storage.group_balances_debt.at(key_debt).get_notes(options);
 
         let mut total_balance = 0 as Field;
         for i in 0..balance_notes_debt.max_len() {
@@ -181,11 +208,13 @@ contract PrivateGroups {
     }
 
     #[private]
-    fn read_total_balance(creditor: AztecAddress, debtor: AztecAddress) -> u64 {
+    fn read_total_balance(creditor: AztecAddress, debtor: AztecAddress) -> i64 {
         //going to have to hand type this, could not call the other private functions
 
         //keys to check in storage
-        let key = pedersen_hash([creditor.to_field(), debtor.to_field()]);
+
+        let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
+        let key = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
 
         //options for the notes 
         let options_1 = NoteGetterOptions::new();
@@ -220,20 +249,9 @@ contract PrivateGroups {
         let tot_debt: i64 = total_debt.to_integer();
         let tot_credit: i64 = total_credit.to_integer();
         let total_balance = tot_credit - tot_debt;
-        total_balance as u64
-        // let total_balance = total_credit - total_debt;
-        // total_balance
+        total_balance as i64
     }
 
-    // #[private]
-    // fn read_total_balance_2(creditor: AztecAddress, debtor: AztecAddress) -> Field {
-
-    //     let total_balance_credit = read_balance_credit(&mut context, creditor, debtor);
-    //     let total_balance_debt = read_balance_debt(&mut context, debtor, creditor);
-    //     let total_balance = total_balance_credit - total_balance_debt;
-
-    //     total_balance    
-    // }
 
     unconstrained pub(crate) fn admin() -> pub AztecAddress {
         let admin_note: NewAddressNote = storage.admin.view_note();
@@ -241,5 +259,4 @@ contract PrivateGroups {
     }
 }
 
-//TODO:: add the token transfer, have tests for that too. 
-//add block time to storage for notes being paid
+

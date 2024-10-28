@@ -69,7 +69,7 @@ export class PrivateGroupsContract extends ContractBase {
     group_members: AztecAddressLike[]
   ) {
     return new DeployMethod<PrivateGroupsContract>(
-      PublicKeys.empty(),
+      PublicKeys.default(),
       wallet,
       PrivateGroupsContractArtifact,
       PrivateGroupsContract.at,
@@ -105,7 +105,7 @@ export class PrivateGroupsContract extends ContractBase {
     ...args: Parameters<PrivateGroupsContract["methods"][M]>
   ) {
     return new DeployMethod<PrivateGroupsContract>(
-      opts.publicKeys ?? PublicKeys.empty(),
+      opts.publicKeys ?? PublicKeys.default(),
       opts.wallet,
       PrivateGroupsContractArtifact,
       PrivateGroupsContract.at,

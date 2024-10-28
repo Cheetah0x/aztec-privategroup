@@ -20,13 +20,14 @@ use dep::std::println;
 use crate::PrivateGroups;
 use std::hash::pedersen_hash;
 
+//Test to get the group members from the contract.
+
 #[test]
 unconstrained fn get_group_members() {
     let ( env, private_group_contract, admin, alice, bob) = utils::setup();
 
     env.impersonate(admin);
-    let group_members_call = PrivateGroups::at(private_group_contract).get_group_members(admin);
-    let members: [AztecAddress; 3] = env.call_private(group_members_call);
+    let members: [AztecAddress; 3] = PrivateGroups::at(private_group_contract).get_group_members(admin).call(&mut env.private());
     println(f"members: {members}");
     assert(members[0] == admin, "Admin not in group");
     assert(members[1] == alice, "Alice not in group");
