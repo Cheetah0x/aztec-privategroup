@@ -163,6 +163,10 @@ export const useExpenses = (
                       memberWallets[otherMember].wallet.getAddress();
                     console.log(`Other member address: ${otherMemberAddress}`);
 
+                    //we are using the read_balance_credit and read_balance_debt functions to get the balance between the two members
+                    //the reason we are not using the read_total_balance function is because the return type is a signed integer which is 
+                    //not supported yet in AztecJS.
+
                     // Fetch BigInt values
                     const creditResult = await contractInstance.methods
                       .read_balance_credit(memberAddress, otherMemberAddress)

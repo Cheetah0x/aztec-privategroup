@@ -17,14 +17,15 @@
 
 mod types;
 mod test;
+mod helpers;
 
 use dep::aztec::macros::aztec;
 
 #[aztec]
 contract PrivateGroups {
 
-    use dep::aztec::prelude::{Map, AztecAddress, PrivateImmutable, PrivateSet};
-    use dep::aztec::{
+    use aztec::{
+        prelude::{Map, AztecAddress, PrivateImmutable, PrivateSet},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
         macros::{
@@ -32,13 +33,11 @@ contract PrivateGroups {
             functions::{public, initializer, private, internal, view},
         },
     };
-    use dep::aztec::note::note_viewer_options::NoteViewerOptions;
-    use crate::types::StringNote::StringNote;
-    use crate::types::NewAddressNote::NewAddressNote;
     use aztec::note::note_getter::NoteGetterOptions;
-    use value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
+    use crate::types::NewAddressNote::NewAddressNote;
+    use crate::helpers::{get_balance, membership_check};
+    use value_note::{utils::{increment, decrement}, value_note::ValueNote};
     use std::hash::poseidon2;
-    use aztec::context::inputs::private_context_inputs::PrivateContextInputs;
 
     global ZERO_ADDRESS: AztecAddress = AztecAddress::from_field(
         0x0000000000000000000000000000000000000000000000000000000000000000,
@@ -126,17 +125,8 @@ contract PrivateGroups {
         //TODO:: add assertions here to make sure that the creditor and debtor, and sender are part of the group
         //This is just an assertion that the sender is part of the group.
         let sender = context.msg_sender();
-
-        let options = NoteGetterOptions::new();
-        let member_note = storage.group_members.at(sender).get_notes(options);
-        let mut member_array: [AztecAddress; 3] = [ZERO_ADDRESS; 3];
-        //if you call this and u are not part of the group, it will return the zero address
-        for i in 0..3 {
-            let note = member_note.get_unchecked(i);
-            let address: AztecAddress = note.address;
-            member_array[i] = address;
-            assert(address != ZERO_ADDRESS, "Sender is not in the group");
-        }
+        let location = storage.group_members.at(sender);
+        assert(membership_check(location), "Sender is not in the group");
 
         //notes for the creditor
         let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
@@ -155,49 +145,27 @@ contract PrivateGroups {
     #[private]
     fn make_payment(debtor: AztecAddress, creditor: AztecAddress, amount: Field) {
         let sender = context.msg_sender();
-
-        let options = NoteGetterOptions::new();
-        let member_note = storage.group_members.at(sender).get_notes(options);
-        let mut member_array: [AztecAddress; 3] = [ZERO_ADDRESS; 3];
-        //if you call this and u are not part of the group, it will return the zero address
-        for i in 0..3 {
-            let note = member_note.get_unchecked(i);
-            let address: AztecAddress = note.address;
-            member_array[i] = address;
-            assert(address != ZERO_ADDRESS, "Sender is not in the group");
-        }
-
-        //reason it does a increment with a negative amount is because decrement would not work.
-        //it always failed an assertion.
-        let new_amount = amount * -1;
+        let location = storage.group_members.at(sender);
+        assert(membership_check(location), "Sender is not in the group");
 
         //notes for the creditor
         let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
         let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
         let loc_credit = storage.group_balances_credit.at(key_credit);
-        increment(loc_credit, new_amount, creditor, debtor);
+        decrement(loc_credit, amount, creditor, debtor);
 
         // notes for the debtor
         let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
         let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
         let loc_debt = storage.group_balances_debt.at(key_debt);
-        increment(loc_debt, new_amount, debtor, creditor);
+        decrement(loc_debt, amount, debtor, creditor);
     }
 
     #[private]
     fn setup_group_payments(creditor: AztecAddress, debtors: [AztecAddress; 2], amount: Field) {
         let sender = context.msg_sender();
-
-        let options = NoteGetterOptions::new();
-        let member_note = storage.group_members.at(sender).get_notes(options);
-        let mut member_array: [AztecAddress; 3] = [ZERO_ADDRESS; 3];
-        //if you call this and u are not part of the group, it will return the zero address
-        for i in 0..3 {
-            let note = member_note.get_unchecked(i);
-            let address: AztecAddress = note.address;
-            member_array[i] = address;
-            assert(address != ZERO_ADDRESS, "Sender is not in the group");
-        }
+        let location = storage.group_members.at(sender);
+        assert(membership_check(location), "Sender is not in the group");
 
         //increase the credit for the creditor with each member
         let shared_amount: u32 = amount as u32 / (debtors.len() + 1);
@@ -221,47 +189,26 @@ contract PrivateGroups {
     #[private]
     #[view]
     fn read_balance_credit(creditor: AztecAddress, debtor: AztecAddress) -> u64 {
-        //for this function i need to also get the notes that the debtor has sent if they have sent any
-        //if they have sent new notes, i need to nullify the old ones that i have sent to the debtor
-        //make a new one with the new outstanding balance
-        //tricky part is listening for new notes that the debtor has sent, updating the balance
-        //do not need assertions here, they can only decrypt the notes that they have access to.
+
         let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
         let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
-        let options = NoteGetterOptions::new();
-        let balance_notes_credit: BoundedVec<ValueNote, 16> =
-            storage.group_balances_credit.at(key_credit).get_notes(options);
-
-        let mut total_balance = 0 as Field;
-        for i in 0..balance_notes_credit.max_len() {
-            if i < balance_notes_credit.len() {
-                let note = balance_notes_credit.get_unchecked(i);
-                total_balance += note.value;
-            }
-        }
-
-        total_balance as u64
+        let location = storage.group_balances_credit.at(key_credit);
+        let balance = get_balance(location);
+        balance as u64
     }
 
     #[private]
     #[view]
     fn read_balance_debt(debtor: AztecAddress, creditor: AztecAddress) -> u64 {
+
         let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
         let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
-        let options = NoteGetterOptions::new();
-        let balance_notes_debt: BoundedVec<ValueNote, 16> =
-            storage.group_balances_debt.at(key_debt).get_notes(options);
-
-        let mut total_balance = 0 as Field;
-        for i in 0..balance_notes_debt.max_len() {
-            if i < balance_notes_debt.len() {
-                let note = balance_notes_debt.get_unchecked(i);
-                total_balance += note.value;
-            }
-        }
-
-        total_balance as u64
+        let location = storage.group_balances_debt.at(key_debt);
+        let balance = get_balance(location);
+        balance as u64
     }
+
+  
 
     #[private]
     #[view]
@@ -271,41 +218,15 @@ contract PrivateGroups {
         let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
         let key = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
 
-        //options for the notes
-        let options_1 = NoteGetterOptions::new();
-        let balance_notes_credit: BoundedVec<ValueNote, 16> =
-            storage.group_balances_credit.at(key).get_notes(options_1);
+        let location_credit = storage.group_balances_credit.at(key);
+        let location_debt = storage.group_balances_debt.at(key);
 
-        let options_2 = NoteGetterOptions::new();
-        let balance_notes_debt: BoundedVec<ValueNote, 16> =
-            storage.group_balances_debt.at(key).get_notes(options_2);
-
-        //sum the notes
-        let mut total_balance_credit = 0 as Field;
-        for i in 0..balance_notes_credit.max_len() {
-            if i < balance_notes_credit.len() {
-                // let note = balance_notes_credit.get_unchecked(i);
-                let note = balance_notes_credit.get(i);
-                total_balance_credit += note.value;
-            }
-        }
-
-        //sum the notes
-        let mut total_balance_debt = 0 as Field;
-        for i in 0..balance_notes_debt.max_len() {
-            if i < balance_notes_debt.len() {
-                let note = balance_notes_debt.get(i);
-                total_balance_debt += note.value;
-            }
-        }
-
-        //convert the note to integer
-        let total_debt = U128::from_integer(total_balance_debt);
-        let total_credit = U128::from_integer(total_balance_credit);
-        let tot_debt: i64 = total_debt.to_integer();
-        let tot_credit: i64 = total_credit.to_integer();
-        let total_balance = tot_credit - tot_debt;
-        total_balance as i64
+        let credit = get_balance(location_credit);
+        let debt = get_balance(location_debt);
+        let credit_int = credit as i64;
+        let debt_int = debt as i64;
+        let total_balance = credit_int - debt_int;
+        total_balance
     }
 
     pub(crate) unconstrained fn admin() -> pub AztecAddress {

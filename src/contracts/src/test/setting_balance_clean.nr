@@ -134,3 +134,30 @@ unconstrained fn multiple_group_balances_clean() {
     env.advance_block_by(1);
     //read the balances
 }
+
+#[test]
+unconstrained fn test_setting_balance_clean1() {
+    let (env, private_group_contract, admin, alice, bob) = utils::setup();
+
+    env.impersonate(admin);
+    let set_balance = PrivateGroups::at(private_group_contract).set_balance(admin, alice, 100).call(&mut env.private());
+    env.advance_block_by(1);
+    let set_balance_2 = PrivateGroups::at(private_group_contract).set_balance(admin, alice, 100).call(&mut env.private());
+
+    env.impersonate(alice);
+    let make_payment = PrivateGroups::at(private_group_contract).make_payment(alice, admin, 150).call(&mut env.private());
+    env.advance_block_by(1);
+
+    env.impersonate(admin);
+    let balance_admin_alice = PrivateGroups::at(private_group_contract).read_total_balance(admin, alice).view(&mut env.private());
+    println(f"balance admin alice: {balance_admin_alice}");
+
+    env.impersonate(alice);
+    let debt_alice = PrivateGroups::at(private_group_contract).read_balance_debt(alice, admin).view(&mut env.private());
+    println(f"debt alice: {debt_alice}");
+    assert(debt_alice == 50, "Debt is not correct");
+
+    let balance_alice_admin = PrivateGroups::at(private_group_contract).read_total_balance(alice, admin).view(&mut env.private());
+    println(f"balance alice admin: {balance_alice_admin}");
+    assert(balance_alice_admin == -50, "Balance is not correct");
+}
