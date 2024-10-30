@@ -19,7 +19,7 @@ use dep::aztec::{
 #[derive(Deserialize)]  // Adds deserialization support for the struct.
 struct NewAddressNote {
     address: AztecAddress, // The AztecAddress for the note.
-    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
+    randomness: Field,
     npk_m_hash: Field,  
 }
 
@@ -81,8 +81,9 @@ impl NewAddressNote {
      */
     pub fn new(address: AztecAddress, npk_m_hash: Field) -> Self {
         // Initializes an empty note header (can be extended with more fields if necessary).
+        let randomness = unsafe { random() };
         let header = NoteHeader::empty();
-        NewAddressNote { address, npk_m_hash, header }
+        NewAddressNote { address, randomness, npk_m_hash, header }
     }
 }
 
@@ -95,6 +96,6 @@ impl Eq for NewAddressNote {
      * @returns `true` if both notes are equal, `false` otherwise.
      */
     fn eq(self, other: Self) -> bool {
-        (self.address == other.address) & (self.npk_m_hash == other.npk_m_hash)
+        (self.address == other.address) & (self.npk_m_hash == other.npk_m_hash) & (self.randomness == other.randomness)
     }
 }

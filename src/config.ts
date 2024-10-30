@@ -3,7 +3,7 @@ import {
   createPXEClient,
   deriveMasterIncomingViewingSecretKey,
 } from "@aztec/aztec.js";
-import { PrivateGroupsContractArtifact } from "./contracts/src/artifacts/PrivateGroups";
+import { PrivateGroupsContractArtifact } from "./privategroups/src/artifacts/PrivateGroups";
 import { AccountManager } from "@aztec/aztec.js/account";
 import { SingleKeyAccountContract } from "@aztec/accounts/single_key";
 

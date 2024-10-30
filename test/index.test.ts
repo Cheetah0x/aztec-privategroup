@@ -17,7 +17,7 @@ import {
 import {
   PrivateGroupsContractArtifact,
   PrivateGroupsContract,
-} from "../src/contracts/src/artifacts/PrivateGroups";
+} from "../src/privategroups/src/artifacts/PrivateGroups";
 import { setupSandbox, createAccount } from "./utils";
 
 describe("PrivateGroups", () => {
@@ -199,23 +199,17 @@ describe("PrivateGroups", () => {
       .wait();
     console.log("makePayment", makePayment);
 
-    const admin_alice_balance = await adminInstance.methods
-      .read_total_balance(adminAddress, aliceAddress)
+    const getBalanceAlice2 = await aliceInstance.methods
+      .read_balance_debt(aliceAddress, adminAddress)
       .simulate();
-    console.log("admin_alice_balance", admin_alice_balance);
+    console.log("getBalanceAlice2", getBalanceAlice2);
+    expect(getBalanceAlice2).toBe(100n);
 
-    const alice_admin_balance = await aliceInstance.methods
-      .read_total_balance(aliceAddress, adminAddress)
+    const getBalanceAdmin2 = await adminInstance.methods
+      .read_balance_credit(adminAddress, aliceAddress)
       .simulate();
-    console.log("alice_admin_balance", alice_admin_balance);
-
-    // const getBalanceAlice2 = await aliceInstance.methods.read_balance_debt(aliceAddress, adminAddress).simulate();
-    // console.log("getBalanceAlice2", getBalanceAlice2);
-    // expect(getBalanceAlice2).toBe(100n);
-
-    // const getBalanceAdmin2 = await adminInstance.methods.read_balance_credit(adminAddress, aliceAddress).simulate();
-    // console.log("getBalanceAdmin2", getBalanceAdmin2);
-    // expect(getBalanceAdmin2).toBe(100n);
+    console.log("getBalanceAdmin2", getBalanceAdmin2);
+    expect(getBalanceAdmin2).toBe(100n);
   }, 300_000);
 
   it("payments between alice and bob", async () => {
@@ -231,7 +225,7 @@ describe("PrivateGroups", () => {
     expect(getBalanceAlice).toBe(100n);
 
     const bobPayAlice = await bobInstance.methods
-      .make_payment(bobAddress, aliceAddress, 50)
+      .make_payment(bobAddress, aliceAddress, 1)
       .send()
       .wait();
     console.log("bobPayAlice", bobPayAlice);
@@ -240,13 +234,13 @@ describe("PrivateGroups", () => {
       .read_balance_credit(aliceAddress, bobAddress)
       .simulate();
     console.log("getBalanceAlice2", getBalanceAlice2);
-    expect(getBalanceAlice2).toBe(50n);
+    expect(getBalanceAlice2).toBe(99n);
 
     const getBobBalance = await bobInstance.methods
       .read_balance_debt(bobAddress, aliceAddress)
       .simulate();
     console.log("getBobBalance", getBobBalance);
-    expect(getBobBalance).toBe(50n);
+    expect(getBobBalance).toBe(99n);
   }, 300_000);
 
   it("sets up group payments", async () => {

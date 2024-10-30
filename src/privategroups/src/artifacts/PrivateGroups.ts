@@ -145,25 +145,15 @@ export class PrivateGroupsContract extends ContractBase {
     >;
   }
 
-  public static get notes(): ContractNotes<
-    "AddressNote" | "StringNote" | "ValueNote" | "NewAddressNote"
-  > {
+  public static get notes(): ContractNotes<"NewAddressNote" | "ValueNote"> {
     return {
-      AddressNote: {
-        id: new NoteSelector(2232136525),
-      },
-      StringNote: {
-        id: new NoteSelector(699142570),
+      NewAddressNote: {
+        id: new NoteSelector(4235158996),
       },
       ValueNote: {
         id: new NoteSelector(1038582377),
       },
-      NewAddressNote: {
-        id: new NoteSelector(4235158996),
-      },
-    } as ContractNotes<
-      "AddressNote" | "StringNote" | "ValueNote" | "NewAddressNote"
-    >;
+    } as ContractNotes<"NewAddressNote" | "ValueNote">;
   }
 
   /** Type-safe wrappers for the public methods exposed by the contract. */

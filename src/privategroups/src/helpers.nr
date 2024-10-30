@@ -1,11 +1,6 @@
-// mod types;
-
 use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOptions};
-use dep::aztec::note::note_getter_options::SortOrder;
-use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained};
-use dep::aztec::keys::getters::get_public_keys;
-use dep::value_note::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
-use crate::types::NewAddressNote::NewAddressNote;
+use dep::value_note::{value_note::{ValueNote, VALUE_NOTE_LEN}};
+use crate::NewAddressNote::NewAddressNote;
 
 global ZERO_ADDRESS: AztecAddress = AztecAddress::from_field(
         0x0000000000000000000000000000000000000000000000000000000000000000,

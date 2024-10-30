@@ -27,7 +27,7 @@
   "include": [
     "src/**/*.ts*",
     "tests/**/*.ts",
-    "src/contracts/target/*.json",
+    "src/privategroups/target/*.json",
     "artifacts/**/*.ts"
   ]
 }

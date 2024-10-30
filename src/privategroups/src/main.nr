@@ -15,9 +15,9 @@
 
 //Hopefully this can be used as an example for pepople building contracts on Aztec.
 
-mod types;
-mod test;
+mod NewAddressNote;
 mod helpers;
+mod test;
 
 use dep::aztec::macros::aztec;
 
@@ -34,7 +34,7 @@ contract PrivateGroups {
         },
     };
     use aztec::note::note_getter::NoteGetterOptions;
-    use crate::types::NewAddressNote::NewAddressNote;
+    use crate::NewAddressNote::NewAddressNote;
     use crate::helpers::{get_balance, membership_check};
     use value_note::{utils::{increment, decrement}, value_note::ValueNote};
     use std::hash::poseidon2;

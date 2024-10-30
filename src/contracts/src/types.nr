@@ -1,2 +1,0 @@
-mod StringNote;
-mod NewAddressNote;

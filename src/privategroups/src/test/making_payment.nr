@@ -7,19 +7,17 @@ use dep::aztec::note::note_viewer_options::NoteViewerOptions;
 use aztec::note::note_getter::NoteGetterOptions;
 use dep::aztec::hash::compute_secret_hash;
 use dep::aztec::{
-    protocol_types::address::AztecAddress,
-    keys::getters::get_public_keys,
+    protocol_types::address::AztecAddress, keys::getters::get_public_keys,
     macros::{storage::storage, events::event, functions::{public, initializer, private, internal}}
 };
 
 use dep::aztec::{oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read}};
-use crate::types::NewAddressNote::NewAddressNote;
+use crate::NewAddressNote::NewAddressNote;
 use value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
 
 use dep::std::println;
 use crate::PrivateGroups;
 use std::hash::pedersen_hash;
-
 
 fn process_balance(balance: BoundedVec<ValueNote, 10>) -> Vec<ValueNote> {
     let mut result = Vec::new();
@@ -42,7 +40,6 @@ fn sum_value_notes(balance: BoundedVec<ValueNote, 10>) -> Field {
     }
     total
 }
-
 
 // env.impersonate(private_group_contract);
 // let unconstrained_context = env.unkonstrained();
