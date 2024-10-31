@@ -1,6 +1,6 @@
-# Splitwise-Like Contracts in Aztec
+# Private Expense Splitting Contract in Aztec
 
-This project is a walk-through for creating Splitwise-like contracts in Aztec, focusing on private and public contexts, contract deployment, testing with AztecJS and the Testing Execution Environment (TXE), creating notes, and setting up a demo frontend. This project uses Aztec version 0.60.0, which is in pre-release. Future updates may include breaking changes.
+This project is a walk-through for creating an expense splitting contract in Aztec, focusing on private and public contexts, contract deployment, testing with AztecJS and the Testing Execution Environment (TXE), creating notes, and setting up a demo frontend. This project uses Aztec version 0.60.0, which is in pre-release. Future updates may include breaking changes.
 
 ## Project Overview
 
@@ -17,7 +17,6 @@ These contracts are for educational purposes and are not optimized or production
 ## Prerequisites
 
 - Aztec Sandbox with PXE, aztec-nargo version 0.60.0
-- TypeScript knowledge for frontend development
 
 For more background, review Aztec’s documentation at [Aztec Network](https://docs.aztec.network/).
 
@@ -26,52 +25,46 @@ For more background, review Aztec’s documentation at [Aztec Network](https://d
 ## Setup
 
 1. **Install Dependencies**:
-    
-    ```bash
-    
-    yarn install
-    ```
-    
+
+   ```bash
+
+   yarn install
+   ```
+
 2. **Initialize Project**:
-    - Initialize your Aztec project within the `src` folder:
-        
-        ```bash
-        
-        mkdir src && cd src
-        aztec-nargo new --contract privategroup
-        ```
-        
+
+   - Initialize your Aztec project within the `src` folder:
+
+     ```bash
+
+     mkdir src && cd src
+     aztec-nargo new --contract circuits
+     ```
+
 3. **Generate TypeScript Artifacts**:
-    - Compile the Noir contract and generate TypeScript artifacts:
-        
-        ```bash
-        
-        cd src/privategroup
-        aztec-nargo compile
-        aztec codegen -o src/artifacts target
-        ```
-        
-4. **Run Aztec Sandbox** (make sure it’s running for contract interaction).
 
----
+   - Compile the Noir contract and generate TypeScript artifacts:
 
-## Project Structure
+     ```bash
+
+     cd src/circuits
+     aztec-nargo compile
+     aztec codegen -o src/artifacts target
+     ```
+
+4. **Installing the Aztec Sandbox** .
+
+```bash
+
+    bash -i <(curl -s https://install.aztec.network)
 
 ```
 
-|-- src
-|   |-- privategroup
-|   |   |-- src
-|.  |.  |   |-- helpers.nr
-|.  |.  |.  |-- NewAddressNote.nr
-|   |   |   |-- main.nr
-|   |   |-- Nargo.toml
-|-- test
-|   |-- index.test.ts
-|-- package.json
-|-- yarn.lock
-|-- jest.integration.config.json
-|-- tsconfig.json
+5. **Running the Aztec Sandbox** (make sure it’s running for contract interaction)
+
+```
+
+    aztec start --sandbox
 
 ```
 
@@ -95,29 +88,27 @@ Two main testing options are available:
 ### 1. End-to-End Testing with AztecJS
 
 1. **Setup Testing Files**:
-    - Add Jest and TypeScript configuration files:
-        - `jest.integration.config.json`
-        - `tsconfig.json`
+   - Add Jest and TypeScript configuration files:
+     - `jest.integration.config.json`
+     - `tsconfig.json`
 2. **Run Tests**:
-    
-    ```bash
-    
-    yarn test
-    ```
-    
+
+   ```bash
+
+   yarn test
+   ```
 
 ### 2. TXE Testing
 
-TXE tests allow direct contract storage access without full protocol checks, ideal for rapid development. Tests are stored within `src/privategroup/src/test`.
+TXE tests allow direct contract storage access without full protocol checks, ideal for rapid development. Tests are stored within `src/circuits/src/test`.
 
 1. **Run TXE Tests**:
-    
-    ```bash
-    
-    cd src/privategroup
-    aztec test --show-output
-    ```
-    
+
+   ```bash
+
+   cd src/circuits
+   aztec test --show-output
+   ```
 
 ---
 
@@ -125,8 +116,8 @@ TXE tests allow direct contract storage access without full protocol checks, ide
 
 1. **Notes**: In Aztec, notes provide a private, UTXO-like model for transactions, where each note can represent value or arbitrary data, stored in a private, append-only Merkle tree.
 2. **Contexts**:
-    - **Public Context**: Simpler structure, all data accessible.
-    - **Private Context**: Requires encrypted notes for private state, offering higher privacy.
+   - **Public Context**: Simpler structure, all data accessible.
+   - **Private Context**: Requires encrypted notes for private state, offering higher privacy.
 3. **Testing with TXE**: TXE enables faster testing through “cheatcodes” for flexible, isolated testing without full protocol compliance.
 
 ## Additional Resources
