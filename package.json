@@ -1,5 +1,5 @@
 {
-  "name": "publicgroups",
+  "name": "privategroups",
   "version": "1.0.0",
   "main": "index.js",
   "repository": "git@github.com:Cheetah0x/aztec-test.git",
@@ -96,13 +96,13 @@
     "testTimeout": 200000
   },
   "scripts": {
-    "clean": "rm -rf ./src/privategroups/artifacts ./src/privategroups/target",
-    "codegen": "aztec codegen ./src/privategroups/target --outdir src/privategroups/src/artifacts",
-    "compile": "cd src/privategroups && ${AZTEC_NARGO:-aztec-nargo} compile && cd ../..",
+    "clean": "rm -rf ./src/circuits/artifacts ./src/circuits/target",
+    "codegen": "aztec codegen ./src/circuits/target --outdir src/circuits/src/artifacts",
+    "compile": "cd src/circuits && ${AZTEC_NARGO:-aztec-nargo} compile && cd ../..",
     "deploy": "node --loader ts-node/esm scripts/deploy.ts",
     "get-block": "node --loader ts-node/esm scripts/getBlock.ts",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --silent=false --config jest.integration.config.json && cd src/privategroups && aztec test",
-    "update": "aztec update --contract ./src/privategroups && ./.github/scripts/update_contract.sh $(grep -oP 'tag\\s*=\\s*\"\\K[^\"]+' \"./src/privategroups/Nargo.toml\" | head -1)",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --silent=false --config jest.integration.config.json && cd src/circuits && aztec test",
+    "update": "aztec update --contract ./src/circuits && ./.github/scripts/update_contract.sh $(grep -oP 'tag\\s*=\\s*\"\\K[^\"]+' \"./src/circuits/Nargo.toml\" | head -1)",
     "prep": "yarn clean && yarn compile && yarn codegen",
     "build:css": "tailwindcss -i ./src/globals.css -o ./dist/output.css",
     "build": "webpack --mode production --config webpack.config.mjs",

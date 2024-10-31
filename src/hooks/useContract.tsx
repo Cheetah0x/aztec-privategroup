@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { AccountWalletWithSecretKey, Contract, Fr, loadContractArtifact, NoirCompiledContract } from '@aztec/aztec.js';
 import { toast } from 'react-toastify';
-import PrivateGroupsContractJson from '../privategroups/target/private_groups-PrivateGroups.json' assert { type: 'json' };
+import PrivateGroupsContractJson from '../circuits/target/private_groups-PrivateGroups.json' assert { type: 'json' };
 
 export function useContract(adminWallet: AccountWalletWithSecretKey, groupMembers: AccountWalletWithSecretKey[]) {
   const [wait, setWait] = useState(false);

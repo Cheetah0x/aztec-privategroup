@@ -1,15 +1,8 @@
 import {
   AccountWallet,
   CompleteAddress,
-  ContractDeployer,
   createDebugLogger,
-  Fr,
-  waitForPXE,
-  TxStatus,
-  createPXEClient,
-  getContractInstanceFromDeployParams,
   Contract,
-  GrumpkinScalar,
   PXE,
   DebugLogger,
   AztecAddress,
@@ -17,7 +10,7 @@ import {
 import {
   PrivateGroupsContractArtifact,
   PrivateGroupsContract,
-} from "../src/privategroups/src/artifacts/PrivateGroups";
+} from "../src/circuits/src/artifacts/PrivateGroups";
 import { setupSandbox, createAccount } from "./utils";
 
 describe("PrivateGroups", () => {
