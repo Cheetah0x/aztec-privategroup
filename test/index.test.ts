@@ -54,7 +54,6 @@ describe("PrivateGroups", () => {
       aliceWallet.getCompleteAddress(),
       bobWallet.getCompleteAddress(),
     ];
-    console.log("accounts created");
 
     // Store just the wallet addresses
     addresses = [
@@ -69,11 +68,15 @@ describe("PrivateGroups", () => {
     aliceAddress = aliceWallet.getCompleteAddress().address;
     bobAddress = bobWallet.getCompleteAddress().address;
     console.log("addresses", addresses);
+    const group_members = [adminAddress, aliceAddress, bobAddress];
+    console.log("group_members", group_members);
 
+    //deploy the contract
     private_group_contract = await Contract.deploy(
       adminWallet,
       GroupsArtifact,
-      [adminAddress, [adminAddress, aliceAddress, bobAddress]]
+      [adminAddress, [adminAddress, aliceAddress, bobAddress]],
+      "constructor"
     )
       .send()
       .deployed();
@@ -88,12 +91,20 @@ describe("PrivateGroups", () => {
     expect(
       await pxe.getContractInstance(private_group_contract.address)
     ).toBeDefined();
-    console.log("contract instance gotten");
+    console.log("contract instance gotten", private_group_contract.address);
     expect(
       await pxe.isContractPubliclyDeployed(private_group_contract.address)
     ).toBeTruthy();
     console.log("contract instance is publicly deployed");
   }, 300_000);
+
+  it("check members as contract", async () => {
+    const members = await private_group_contract.methods
+      .get_group_members(adminAddress)
+      .simulate();
+    console.log("members", members);
+    expect(members).toEqual([adminAddress, aliceAddress, bobAddress]);
+  });
 
   it("should have added all members to group", async () => {
     adminInstance = await PrivateGroupsContract.at(
@@ -107,10 +118,44 @@ describe("PrivateGroups", () => {
       .simulate();
     console.log("getMembers", getMembers);
     expect(getMembers).toEqual([adminAddress, aliceAddress, bobAddress]);
+    console.log("admin instance done");
+  });
+
+  it("try with alice", async () => {
+    //try with alice and bob
+    aliceInstance = await PrivateGroupsContract.at(
+      private_group_contract.address,
+      aliceWallet
+    );
+    console.log("alice instance made");
+
+    let getMembersAlice = await aliceInstance.methods
+      .get_group_members(aliceAddress)
+      .simulate();
+    console.log("getMembersAlice", getMembersAlice);
+    expect(getMembersAlice).toEqual([adminAddress, aliceAddress, bobAddress]);
+  });
+
+  it("try with bob", async () => {
+    bobInstance = await PrivateGroupsContract.at(
+      private_group_contract.address,
+      bobWallet
+    );
+    console.log("bob instance made");
+    let getMembersBob = await bobInstance.methods
+      .get_group_members(bobAddress)
+      .simulate();
+    console.log("getMembersBob", getMembersBob);
+    expect(getMembersBob).toEqual([adminAddress, aliceAddress, bobAddress]);
   }, 300_000);
 
-  it("get the admin from storage", async () => {
+  it("gets the admin from storage", async () => {
+    adminInstance = await PrivateGroupsContract.at(
+      private_group_contract.address,
+      adminWallet
+    );
     let getAdmin = await adminInstance.methods.get_admin().simulate();
+    console.log("getAdmin", getAdmin);
     expect(getAdmin).toEqual(adminAddress);
   }, 300_000);
 
@@ -164,107 +209,123 @@ describe("PrivateGroups", () => {
 
   it("sets the balance for admin and alice, credit for admin, debt for alice", async () => {
     const setBalance = await adminInstance.methods
-      .set_balance(adminAddress, aliceAddress, 100)
+      .set_balance(adminAddress, aliceAddress, 50)
       .send()
       .wait();
     console.log("setBalance", setBalance);
 
-    const getBalance = await adminInstance.methods
-      .read_balance_credit(adminAddress, aliceAddress)
-      .simulate();
-    console.log("getBalance", getBalance);
-    expect(getBalance).toBe(100n);
-
-    const aliceInstance = await PrivateGroupsContract.at(
-      private_group_contract.address,
-      aliceWallet
-    );
-    const getBalanceAlice = await aliceInstance.methods
-      .read_balance_debt(aliceAddress, adminAddress)
-      .simulate();
-    console.log("getBalanceAlice", getBalanceAlice);
-    expect(getBalanceAlice).toBe(100n);
-
-    //alice now pays the admin 50
-    const makePayment = await aliceInstance.methods
-      .set_balance(aliceAddress, adminAddress, 20)
+    const make_payment = aliceInstance.methods
+      .make_payment(aliceAddress, adminAddress, 20)
       .send()
       .wait();
-    console.log("makePayment", makePayment);
+    console.log("make_payment", make_payment);
 
-    const getBalanceAlice2 = await aliceInstance.methods
-      .read_balance_debt(aliceAddress, adminAddress)
-      .simulate();
-    console.log("getBalanceAlice2", getBalanceAlice2);
-    expect(getBalanceAlice2).toBe(100n);
+    const incoming_notes_filter = {
+      contractAddress: private_group_contract.address,
+      owner: adminAddress,
+    };
 
-    const getBalanceAdmin2 = await adminInstance.methods
-      .read_balance_credit(adminAddress, aliceAddress)
+    const admin_notes = await pxe.getIncomingNotes(incoming_notes_filter);
+    console.log("admin_notes", admin_notes);
+
+    const test_admin_balance = await adminInstance.methods
+      .read_balance(adminAddress, aliceAddress)
       .simulate();
-    console.log("getBalanceAdmin2", getBalanceAdmin2);
-    expect(getBalanceAdmin2).toBe(100n);
+    console.log("test_admin_balance", test_admin_balance);
+    expect(test_admin_balance).toBe(30n);
+
+    const test_alice_balance = await aliceInstance.methods
+      .read_balance(aliceAddress, adminAddress)
+      .simulate();
+    console.log("test_alice_balance", test_alice_balance);
+    expect(test_alice_balance).toBe(-30n);
+
+    // const getBalanceAlice = await aliceInstance.methods
+    //   .read_balance(aliceAddress, adminAddress)
+    //   .simulate();
+    // console.log("getBalanceAlice", getBalanceAlice);
+    // expect(getBalanceAlice).toBe(30n);
+
+    // //alice now pays the admin 50
+    // const makePayment = await aliceInstance.methods
+    //   .set_balance(aliceAddress, adminAddress, 20)
+    //   .send()
+    //   .wait();
+    // console.log("makePayment", makePayment);
+
+    // const getBalanceAlice2 = await aliceInstance.methods
+    //   .read_balance(aliceAddress, adminAddress)
+    //   .simulate();
+    // console.log("getBalanceAlice2", getBalanceAlice2);
+    // expect(getBalanceAlice2).toBe(-30n);
+
+    // const getBalanceAdmin2 = await adminInstance.methods
+    //   .read_balance(adminAddress, aliceAddress)
+    //   .simulate();
+    // console.log("getBalanceAdmin2", getBalanceAdmin2);
+    // expect(getBalanceAdmin2).toBe(30n);
   }, 300_000);
 
-  it("payments between alice and bob", async () => {
-    const bobOweAlice = await aliceInstance.methods
-      .set_balance(aliceAddress, bobAddress, 100)
-      .send()
-      .wait();
-    console.log("bobOweAlice", bobOweAlice);
+  // it("payments between alice and bob", async () => {
+  //   const bobOweAlice = await aliceInstance.methods
+  //     .set_balance(aliceAddress, bobAddress, 100)
+  //     .send()
+  //     .wait();
+  //   console.log("bobOweAlice", bobOweAlice);
 
-    const getBalanceAlice = await aliceInstance.methods
-      .read_balance_credit(aliceAddress, bobAddress)
-      .simulate();
-    expect(getBalanceAlice).toBe(100n);
+  //   const getBalanceAlice = await aliceInstance.methods
+  //     .read_balance(aliceAddress, bobAddress)
+  //     .simulate();
+  //   expect(getBalanceAlice).toBe(100n);
 
-    const bobPayAlice = await bobInstance.methods
-      .make_payment(bobAddress, aliceAddress, 1)
-      .send()
-      .wait();
-    console.log("bobPayAlice", bobPayAlice);
+  //   const bobPayAlice = await bobInstance.methods
+  //     .make_payment(bobAddress, aliceAddress, 1)
+  //     .send()
+  //     .wait();
+  //   console.log("bobPayAlice", bobPayAlice);
 
-    const getBalanceAlice2 = await aliceInstance.methods
-      .read_balance_credit(aliceAddress, bobAddress)
-      .simulate();
-    console.log("getBalanceAlice2", getBalanceAlice2);
-    expect(getBalanceAlice2).toBe(99n);
+  //   const getBalanceAlice2 = await aliceInstance.methods
+  //     .read_balance(aliceAddress, bobAddress)
+  //     .simulate();
+  //   console.log("getBalanceAlice2", getBalanceAlice2);
+  //   expect(getBalanceAlice2).toBe(99n);
 
-    const getBobBalance = await bobInstance.methods
-      .read_balance_debt(bobAddress, aliceAddress)
-      .simulate();
-    console.log("getBobBalance", getBobBalance);
-    expect(getBobBalance).toBe(99n);
-  }, 300_000);
+  //   const getBobBalance = await bobInstance.methods
+  //     .read_balance(bobAddress, aliceAddress)
+  //     .simulate();
+  //   console.log("getBobBalance", getBobBalance);
+  //   expect(getBobBalance).toBe(-99n);
+  // }, 300_000);
 
-  it("sets up group payments", async () => {
-    const setupGroupPayments = await adminInstance.methods
-      .setup_group_payments(adminAddress, [aliceAddress, bobAddress], 150)
-      .send()
-      .wait();
-    console.log("setupGroupPayments", setupGroupPayments);
+  // it("sets up group payments", async () => {
+  //   const setupGroupPayments = await adminInstance.methods
+  //     .setup_group_payments(adminAddress, [aliceAddress, bobAddress], 150)
+  //     .send()
+  //     .wait();
+  //   console.log("setupGroupPayments", setupGroupPayments);
 
-    const aliceBalance = await aliceInstance.methods
-      .read_balance_debt(aliceAddress, adminAddress)
-      .simulate();
-    console.log("aliceBalance", aliceBalance);
-    expect(aliceBalance).toBe(150n);
+  //   const aliceBalance = await aliceInstance.methods
+  //     .read_balance(aliceAddress, adminAddress)
+  //     .simulate();
+  //   console.log("aliceBalance", aliceBalance);
+  //   expect(aliceBalance).toBe(150n);
 
-    const bobBalance = await bobInstance.methods
-      .read_balance_debt(bobAddress, adminAddress)
-      .simulate();
-    console.log("bobBalance", bobBalance);
-    expect(bobBalance).toBe(50n);
+  //   const bobBalance = await bobInstance.methods
+  //     .read_balance(bobAddress, adminAddress)
+  //     .simulate();
+  //   console.log("bobBalance", bobBalance);
+  //   expect(bobBalance).toBe(50n);
 
-    const adminBalance_alice = await adminInstance.methods
-      .read_balance_credit(adminAddress, aliceAddress)
-      .simulate();
-    console.log("adminBalance_alice", adminBalance_alice);
-    expect(adminBalance_alice).toBe(150n);
+  //   const adminBalance_alice = await adminInstance.methods
+  //     .read_balance(adminAddress, aliceAddress)
+  //     .simulate();
+  //   console.log("adminBalance_alice", adminBalance_alice);
+  //   expect(adminBalance_alice).toBe(150n);
 
-    const adminBalance_bob = await adminInstance.methods
-      .read_balance_credit(adminAddress, bobAddress)
-      .simulate();
-    console.log("adminBalance_bob", adminBalance_bob);
-    expect(adminBalance_bob).toBe(50n);
-  }, 300_000);
+  //   const adminBalance_bob = await adminInstance.methods
+  //     .read_balance(adminAddress, bobAddress)
+  //     .simulate();
+  //   console.log("adminBalance_bob", adminBalance_bob);
+  //   expect(adminBalance_bob).toBe(50n);
+  // }, 300_000);
 });

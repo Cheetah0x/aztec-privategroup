@@ -1,4 +1,5 @@
 use dep::aztec::{
+    keys::getters::get_public_keys,
     protocol_types::{
         address::AztecAddress,
         traits::{Serialize, Deserialize},
@@ -20,7 +21,7 @@ use dep::aztec::{
 struct NewAddressNote {
     address: AztecAddress, // The AztecAddress for the note.
     randomness: Field,
-    npk_m_hash: Field,  
+    owner: AztecAddress,  
 }
 
 impl NullifiableNote for NewAddressNote {
@@ -35,7 +36,8 @@ impl NullifiableNote for NewAddressNote {
      */
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         // Retrieves the nullifying secret key from the context.
-        let secret = context.request_nsk_app(self.npk_m_hash);
+        let owner_npk_m_hash: Field = get_public_keys(self.owner).npk_m.hash();
+        let secret = context.request_nsk_app(owner_npk_m_hash);
         
         // Uses Poseidon hashing to compute the nullifier, incorporating the note hash and the secret.
         poseidon2_hash_with_separator(
@@ -57,8 +59,9 @@ impl NullifiableNote for NewAddressNote {
     unconstrained fn compute_nullifier_without_context(self) -> Field {
         // Computes the note hash for nullification.
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
+        let owner_npk_m_hash: Field = get_public_keys(self.owner).npk_m.hash();
         // Retrieves the nullifying secret key directly without context.
-        let secret = get_nsk_app(self.npk_m_hash);
+        let secret = get_nsk_app(owner_npk_m_hash);
         
         // Uses Poseidon hashing to compute the nullifier, incorporating the note hash and the secret.
         poseidon2_hash_with_separator(
@@ -79,11 +82,11 @@ impl NewAddressNote {
      * @param npk_m_hash - The nullifying public key hash, used to ensure private spending.
      * @returns A new `NewAddressNote` instance.
      */
-    pub fn new(address: AztecAddress, npk_m_hash: Field) -> Self {
+    pub fn new(address: AztecAddress, owner: AztecAddress) -> Self {
         // Initializes an empty note header (can be extended with more fields if necessary).
         let randomness = unsafe { random() };
         let header = NoteHeader::empty();
-        NewAddressNote { address, randomness, npk_m_hash, header }
+        NewAddressNote { address, randomness, owner, header }
     }
 }
 
@@ -96,6 +99,6 @@ impl Eq for NewAddressNote {
      * @returns `true` if both notes are equal, `false` otherwise.
      */
     fn eq(self, other: Self) -> bool {
-        (self.address == other.address) & (self.npk_m_hash == other.npk_m_hash) & (self.randomness == other.randomness)
+        (self.address == other.address) & (self.owner == other.owner) & (self.randomness == other.randomness)
     }
 }

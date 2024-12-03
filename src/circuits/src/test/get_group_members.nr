@@ -23,6 +23,17 @@ unconstrained fn get_group_members_through_admin() {
 }
 
 #[test]
+unconstrained fn get_group_members_through_alice() {
+    let (env, private_group_contract, admin, alice, bob) = utils::setup();
+    env.impersonate(alice);
+    let members: [AztecAddress; 3] = PrivateGroups::at(private_group_contract).get_group_members(alice).view(&mut env.private());
+    println(f"members: {members}");
+    assert(members[0] == admin, "Admin not in group");
+    assert(members[1] == alice, "Alice not in group");
+    assert(members[2] == bob, "Bob not in group");
+}
+
+#[test]
 unconstrained fn get_group_members() {
     let ( env, private_group_contract, admin, alice, bob) = utils::setup();
 
@@ -64,4 +75,11 @@ unconstrained fn get_group_members_fail() {
     assert(members[0] == ZERO_ADDRESS, "Zero address not in group");
     assert(members[1] == ZERO_ADDRESS, "Zero address not in group");
     assert(members[2] == ZERO_ADDRESS, "Zero address not in group");
+}
+
+#[test]
+unconstrained fn get_admin() {
+    let (env, private_group_contract, admin, alice, bob) = utils::setup();
+    let admin_address = PrivateGroups::at(private_group_contract).get_admin().view(&mut env.private());
+    assert(admin_address == admin, "Admin address is not correct");
 }

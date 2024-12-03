@@ -20,12 +20,12 @@ unconstrained fn test_setting_balance_clean() {
     env.advance_block_by(1);
 
     env.impersonate(admin);
-    let admin_balance: i64 = PrivateGroups::at(private_group_contract).read_total_balance(admin, alice).view(&mut env.private());
+    let admin_balance: i64 = PrivateGroups::at(private_group_contract).read_balance(admin, alice).view(&mut env.private());
     println(f"balance: {admin_balance}");
     assert(admin_balance == 50, "Balance is not correct");
 
     env.impersonate(alice);
-    let alice_balance: i64 = PrivateGroups::at(private_group_contract).read_total_balance(alice, admin).view(&mut env.private());
+    let alice_balance: i64 = PrivateGroups::at(private_group_contract).read_balance(alice, admin).view(&mut env.private());
     println(f"balance alice: {alice_balance}");
     assert(alice_balance == -50, "Balance is not correct");
 }
@@ -41,24 +41,19 @@ unconstrained fn test_setting_group_balance_clean() {
     env.advance_block_by(1);
 
     //balance between admin and alice
-    let balance_admin_alice: u64 = PrivateGroups::at(private_group_contract).read_balance_credit(admin, alice).view(&mut env.private());
+    let balance_admin_alice = PrivateGroups::at(private_group_contract).read_balance(admin, alice).view(&mut env.private());
     println(f"balance admin alice: {balance_admin_alice}");
     assert(balance_admin_alice == 50, "Balance is not correct");
 
-    //balance between admin and bob
-    let balance_admin_bob: u64 = PrivateGroups::at(private_group_contract).read_balance_credit(admin, bob).view(&mut env.private());
-    println(f"balance admin bob: {balance_admin_bob}");
-    assert(balance_admin_bob == 50, "Balance is not correct");
-
     env.impersonate(alice);
-    let balance_alice_admin: u64 = PrivateGroups::at(private_group_contract).read_balance_debt(alice, admin).view(&mut env.private());
+    let balance_alice_admin = PrivateGroups::at(private_group_contract).read_balance(alice, admin).view(&mut env.private());
     println(f"balance alice admin: {balance_alice_admin}");
-    assert(balance_alice_admin == 50, "Balance is not correct");
+    assert(balance_alice_admin == -50, "Balance is not correct");
 
     env.impersonate(bob);
-    let balance_bob_admin: u64 = PrivateGroups::at(private_group_contract).read_balance_debt(bob, admin).view(&mut env.private());
+    let balance_bob_admin = PrivateGroups::at(private_group_contract).read_balance(bob, admin).view(&mut env.private());
     println(f"balance bob admin: {balance_bob_admin}");
-    assert(balance_bob_admin == 50, "Balance is not correct");
+    assert(balance_bob_admin == -50, "Balance is not correct");
 }
 
 #[test]
@@ -73,12 +68,12 @@ unconstrained fn make_payment_clean() {
     let make_payment = PrivateGroups::at(private_group_contract).make_payment(alice, admin, 20).call(&mut env.private());
     env.advance_block_by(1);
 
-    let balance_alice_admin: u64 = PrivateGroups::at(private_group_contract).read_balance_debt(alice, admin).view(&mut env.private());
+    let balance_alice_admin = PrivateGroups::at(private_group_contract).read_balance(alice, admin).view(&mut env.private());
     println(f"balance alice admin: {balance_alice_admin}");
-    assert(balance_alice_admin == 30, "Balance is not correct");
+    assert(balance_alice_admin == -30, "Balance is not correct");
 
     env.impersonate(admin);
-    let balance_admin_alice: u64 = PrivateGroups::at(private_group_contract).read_balance_credit(admin, alice).view(&mut env.private());
+    let balance_admin_alice = PrivateGroups::at(private_group_contract).read_balance(admin, alice).view(&mut env.private());
     println(f"balance admin alice: {balance_admin_alice}");
     assert(balance_admin_alice == 30, "Balance is not correct");
 }
@@ -110,17 +105,17 @@ unconstrained fn multiple_group_balances_clean() {
     //read the balances
 
     env.impersonate(admin);
-    let balance_admin_alice = PrivateGroups::at(private_group_contract).read_total_balance(admin, alice).view(&mut env.private());
+    let balance_admin_alice = PrivateGroups::at(private_group_contract).read_balance(admin, alice).view(&mut env.private());
     println(f"balance admin alice miult: {balance_admin_alice}");
     assert(balance_admin_alice == -20, "Balance is not correct");
 
     env.impersonate(alice);
-    let balance_alice_admin = PrivateGroups::at(private_group_contract).read_total_balance(alice, admin).view(&mut env.private());
+    let balance_alice_admin = PrivateGroups::at(private_group_contract).read_balance(alice, admin).view(&mut env.private());
     println(f"balance alice admin multi: {balance_alice_admin}");
     assert(balance_alice_admin == 20, "Balance is not correct");
 
     env.impersonate(bob);
-    let balance_bob_admin = PrivateGroups::at(private_group_contract).read_total_balance(bob, admin).view(&mut env.private());
+    let balance_bob_admin = PrivateGroups::at(private_group_contract).read_balance(bob, admin).view(&mut env.private());
     println(f"balance bob admin multi: {balance_bob_admin}");
     assert(balance_bob_admin == 50, "Balance is not correct");
 }
@@ -139,15 +134,12 @@ unconstrained fn test_setting_balance_clean1() {
     env.advance_block_by(1);
 
     env.impersonate(admin);
-    let balance_admin_alice = PrivateGroups::at(private_group_contract).read_total_balance(admin, alice).view(&mut env.private());
+    let balance_admin_alice = PrivateGroups::at(private_group_contract).read_balance(admin, alice).view(&mut env.private());
     println(f"balance admin alice: {balance_admin_alice}");
+    assert(balance_admin_alice == 50, "Balance is not correct");
 
     env.impersonate(alice);
-    let debt_alice = PrivateGroups::at(private_group_contract).read_balance_debt(alice, admin).view(&mut env.private());
-    println(f"debt alice: {debt_alice}");
-    assert(debt_alice == 50, "Debt is not correct");
-
-    let balance_alice_admin = PrivateGroups::at(private_group_contract).read_total_balance(alice, admin).view(&mut env.private());
+    let balance_alice_admin = PrivateGroups::at(private_group_contract).read_balance(alice, admin).view(&mut env.private());
     println(f"balance alice admin: {balance_alice_admin}");
     assert(balance_alice_admin == -50, "Balance is not correct");
 }

@@ -52,24 +52,25 @@ contract PrivateGroups {
     struct Storage<Context> {
         admin: PrivateImmutable<NewAddressNote, Context>,
         group_members: Map<AztecAddress, PrivateSet<NewAddressNote, Context>, Context>,
-        group_balances_credit: Map<Field, PrivateSet<ValueNote, Context>, Context>,
-        group_balances_debt: Map<Field, PrivateSet<ValueNote, Context>, Context>,
+        group_balances: Map<Field, PrivateSet<ValueNote, Context>, Context>,
     }
 
     // Contract Constructor:
     // - The admin creates the group and initializes group members.
     // - Each group member is added to the private set, allowing them to see other members.
     // - This operation can be expensive due to encryption and note handling for each member.
+    // - should i assume that the admin is the person that created the group, will do for now
     #[private]
     #[initializer]
     fn constructor(admin: AztecAddress, group_members: [AztecAddress; 3]) {
+        // assert(admin == context.msg_sender(), "Admin is not the sender"); got error, user cannot assert msg_sender in first call
         //setting the admin address note
         let admin_keys = get_public_keys(admin);
-        let mut admin_address_note = NewAddressNote::new(admin, admin_keys.npk_m.hash());
+        let mut admin_address_note = NewAddressNote::new(admin, admin);
         storage.admin.initialize(&mut admin_address_note).emit(encode_and_encrypt_note(
             &mut context,
             admin_keys.ovpk_m,
-            admin_keys.ivpk_m,
+            admin,
             admin,
         ));
 
@@ -80,13 +81,13 @@ contract PrivateGroups {
                 let member_keys = get_public_keys(member);
                 for i in 0..3 {
                     let member_add = group_members[i as u32];
-                    let mut memberNote = NewAddressNote::new(member_add, member_keys.npk_m.hash());
+                    let mut memberNote = NewAddressNote::new(member_add, member_add);
                     storage.group_members.at(member).insert(&mut memberNote).emit(
                         encode_and_encrypt_note(
                             &mut context,
                             admin_keys.ovpk_m,
-                            member_keys.ivpk_m,
                             member,
+                            admin,
                         ),
                     );
                 }
@@ -125,20 +126,14 @@ contract PrivateGroups {
         //TODO:: add assertions here to make sure that the creditor and debtor, and sender are part of the group
         //This is just an assertion that the sender is part of the group.
         let sender = context.msg_sender();
-        let location = storage.group_members.at(sender);
-        assert(membership_check(location), "Sender is not in the group");
+        let member_location = storage.group_members.at(sender);
+        assert(membership_check(member_location), "Sender is not in the group");
 
         //notes for the creditor
         let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
-        let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
-        let loc_credit = storage.group_balances_credit.at(key_credit);
-        increment(loc_credit, amount, creditor, debtor);
-
-        // notes for the debtor
-        let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
-        let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
-        let loc_debt = storage.group_balances_debt.at(key_debt);
-        increment(loc_debt, amount, debtor, creditor);
+        let key = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
+        let balance_location = storage.group_balances.at(key);
+        increment(balance_location, amount, creditor, debtor, sender);
     }
 
     //can have a timestamp here for when the payment is made.
@@ -150,15 +145,9 @@ contract PrivateGroups {
 
         //notes for the creditor
         let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
-        let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
-        let loc_credit = storage.group_balances_credit.at(key_credit);
-        decrement(loc_credit, amount, creditor, debtor);
-
-        // notes for the debtor
-        let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
-        let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
-        let loc_debt = storage.group_balances_debt.at(key_debt);
-        decrement(loc_debt, amount, debtor, creditor);
+        let key = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
+        let location = storage.group_balances.at(key);
+        decrement(location, amount, creditor, debtor, sender);
     }
 
     #[private]
@@ -171,62 +160,28 @@ contract PrivateGroups {
         let shared_amount: u32 = amount as u32 / (debtors.len() + 1);
         for i in 0..2 {
             let debtor = debtors[i];
-            let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
-            let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
-            let loc_credit = storage.group_balances_credit.at(key_credit);
-            increment(loc_credit, shared_amount.to_field(), creditor, debtor);
-        }
-        //increase the debt for each member with the creditor
-        for i in 0..2 {
-            let debtor = debtors[i];
-            let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
-            let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
-            let loc_debt = storage.group_balances_debt.at(key_debt);
-            increment(loc_debt, shared_amount.to_field(), debtor, creditor);
+            let hash_inputs = [creditor.to_field(), debtor.to_field()];
+            let key = poseidon2::Poseidon2::hash(hash_inputs, 2);
+            let balance_location = storage.group_balances.at(key);
+            increment(balance_location, shared_amount.to_field(), creditor, debtor, sender);
         }
     }
 
     #[private]
     #[view]
-    fn read_balance_credit(creditor: AztecAddress, debtor: AztecAddress) -> u64 {
-
+    fn read_balance(creditor: AztecAddress, debtor: AztecAddress) -> i64 {
+        //for reading the balance, we need to get the balances for the two respective members at the two different locations
         let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
         let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
-        let location = storage.group_balances_credit.at(key_credit);
-        let balance = get_balance(location);
-        balance as u64
-    }
-
-    #[private]
-    #[view]
-    fn read_balance_debt(debtor: AztecAddress, creditor: AztecAddress) -> u64 {
+        let balance_location_credit = storage.group_balances.at(key_credit);
+        let balance_credit = get_balance(balance_location_credit);
 
         let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
         let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
-        let location = storage.group_balances_debt.at(key_debt);
-        let balance = get_balance(location);
-        balance as u64
-    }
-
-  
-
-    #[private]
-    #[view]
-    fn read_total_balance(creditor: AztecAddress, debtor: AztecAddress) -> i64 {
-        //going to have to hand type this, could not call the other private functions
-        //keys to check in storage
-        let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
-        let key = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
-
-        let location_credit = storage.group_balances_credit.at(key);
-        let location_debt = storage.group_balances_debt.at(key);
-
-        let credit = get_balance(location_credit);
-        let debt = get_balance(location_debt);
-        let credit_int = credit as i64;
-        let debt_int = debt as i64;
-        let total_balance = credit_int - debt_int;
-        total_balance
+        let balance_location_debt = storage.group_balances.at(key_debt);
+        let balance_debt = get_balance(balance_location_debt);
+        let balance = balance_credit as i64 - balance_debt as i64;
+        balance
     }
 
     pub(crate) unconstrained fn admin() -> pub AztecAddress {
