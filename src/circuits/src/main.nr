@@ -52,7 +52,8 @@ contract PrivateGroups {
     struct Storage<Context> {
         admin: PrivateImmutable<NewAddressNote, Context>,
         group_members: Map<AztecAddress, PrivateSet<NewAddressNote, Context>, Context>,
-        group_balances: Map<Field, PrivateSet<ValueNote, Context>, Context>,
+        group_balances_credit: Map<Field, PrivateSet<ValueNote, Context>, Context>,
+        group_balances_debt: Map<Field, PrivateSet<ValueNote, Context>, Context>,
     }
 
     // Contract Constructor:
@@ -83,12 +84,7 @@ contract PrivateGroups {
                     let member_add = group_members[i as u32];
                     let mut memberNote = NewAddressNote::new(member_add, member_add);
                     storage.group_members.at(member).insert(&mut memberNote).emit(
-                        encode_and_encrypt_note(
-                            &mut context,
-                            admin_keys.ovpk_m,
-                            member,
-                            admin,
-                        ),
+                        encode_and_encrypt_note(&mut context, admin_keys.ovpk_m, member, admin),
                     );
                 }
             }
@@ -113,27 +109,33 @@ contract PrivateGroups {
         let mut member_array: [AztecAddress; 3] = [ZERO_ADDRESS; 3];
         //if you call this and u are not part of the group, it will return the zero address
         for i in 0..3 {
-            let note = member_note.get_unchecked(i);
-            let address: AztecAddress = note.address;
+            let address = member_note.get_unchecked(i).address;
             member_array[i] = address;
         }
         member_array
     }
 
     //Setting the balance for the creditor and debtor
+    //Setting the balance for the creditor and debtor
     #[private]
     fn set_balance(creditor: AztecAddress, debtor: AztecAddress, amount: Field) {
         //TODO:: add assertions here to make sure that the creditor and debtor, and sender are part of the group
         //This is just an assertion that the sender is part of the group.
         let sender = context.msg_sender();
-        let member_location = storage.group_members.at(sender);
-        assert(membership_check(member_location), "Sender is not in the group");
+        let location = storage.group_members.at(sender);
+        assert(membership_check(location), "Sender is not in the group");
 
         //notes for the creditor
         let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
-        let key = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
-        let balance_location = storage.group_balances.at(key);
-        increment(balance_location, amount, creditor, debtor, sender);
+        let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
+        let loc_credit = storage.group_balances_credit.at(key_credit);
+        increment(loc_credit, amount, creditor, debtor, sender);
+
+        // notes for the debtor
+        let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
+        let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
+        let loc_debt = storage.group_balances_debt.at(key_debt);
+        increment(loc_debt, amount, debtor, creditor, sender);
     }
 
     //can have a timestamp here for when the payment is made.
@@ -145,9 +147,15 @@ contract PrivateGroups {
 
         //notes for the creditor
         let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
-        let key = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
-        let location = storage.group_balances.at(key);
-        decrement(location, amount, creditor, debtor, sender);
+        let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
+        let loc_credit = storage.group_balances_credit.at(key_credit);
+        decrement(loc_credit, amount, creditor, debtor, sender);
+
+        // notes for the debtor
+        let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
+        let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
+        let loc_debt = storage.group_balances_debt.at(key_debt);
+        decrement(loc_debt, amount, debtor, creditor, sender);
     }
 
     #[private]
@@ -160,33 +168,64 @@ contract PrivateGroups {
         let shared_amount: u32 = amount as u32 / (debtors.len() + 1);
         for i in 0..2 {
             let debtor = debtors[i];
-            let hash_inputs = [creditor.to_field(), debtor.to_field()];
-            let key = poseidon2::Poseidon2::hash(hash_inputs, 2);
-            let balance_location = storage.group_balances.at(key);
-            increment(balance_location, shared_amount.to_field(), creditor, debtor, sender);
+            let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
+            let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
+            let loc_credit = storage.group_balances_credit.at(key_credit);
+            increment(
+                loc_credit,
+                shared_amount.to_field(),
+                creditor,
+                debtor,
+                sender,
+            );
+        }
+        //increase the debt for each member with the creditor
+        for i in 0..2 {
+            let debtor = debtors[i];
+            let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
+            let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
+            let loc_debt = storage.group_balances_debt.at(key_debt);
+            increment(loc_debt, shared_amount.to_field(), debtor, creditor, sender);
         }
     }
 
     #[private]
     #[view]
-    fn read_balance(creditor: AztecAddress, debtor: AztecAddress) -> i64 {
-        //for reading the balance, we need to get the balances for the two respective members at the two different locations
+    fn read_balance_credit(creditor: AztecAddress, debtor: AztecAddress) -> u64 {
         let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
         let key_credit = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
-        let balance_location_credit = storage.group_balances.at(key_credit);
-        let balance_credit = get_balance(balance_location_credit);
-
-        let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
-        let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
-        let balance_location_debt = storage.group_balances.at(key_debt);
-        let balance_debt = get_balance(balance_location_debt);
-        let balance = balance_credit as i64 - balance_debt as i64;
-        balance
+        let location = storage.group_balances_credit.at(key_credit);
+        let balance = get_balance(location);
+        balance as u64
     }
 
-    pub(crate) unconstrained fn admin() -> pub AztecAddress {
-        let admin_note: NewAddressNote = storage.admin.view_note();
-        admin_note.address
+    #[private]
+    #[view]
+    fn read_balance_debt(debtor: AztecAddress, creditor: AztecAddress) -> u64 {
+        let hash_inputs_debt = [debtor.to_field(), creditor.to_field()];
+        let key_debt = poseidon2::Poseidon2::hash(hash_inputs_debt, 2);
+        let location = storage.group_balances_debt.at(key_debt);
+        let balance = get_balance(location);
+        balance as u64
+    }
+
+    #[private]
+    #[view]
+    fn read_total_balance(creditor: AztecAddress, debtor: AztecAddress) -> i64 {
+        //going to have to hand type this, could not call the other private functions
+        //keys to check in storage
+        let hash_inputs_credit = [creditor.to_field(), debtor.to_field()];
+        let key = poseidon2::Poseidon2::hash(hash_inputs_credit, 2);
+
+        let location_credit = storage.group_balances_credit.at(key);
+        let location_debt = storage.group_balances_debt.at(key);
+
+        let credit = get_balance(location_credit);
+        let debt = get_balance(location_debt);
+        let credit_int = credit as i64;
+        let debt_int = debt as i64;
+        let total_balance = credit_int - debt_int;
+        total_balance
     }
 }
 

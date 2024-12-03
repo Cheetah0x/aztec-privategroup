@@ -108,7 +108,7 @@ export class PrivateGroupsContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'admin' | 'group_members' | 'group_balances'> {
+  public static get storage(): ContractStorageLayout<'admin' | 'group_members' | 'group_balances_credit' | 'group_balances_debt'> {
       return {
         admin: {
       slot: new Fr(1n),
@@ -116,10 +116,13 @@ export class PrivateGroupsContract extends ContractBase {
 group_members: {
       slot: new Fr(2n),
     },
-group_balances: {
+group_balances_credit: {
       slot: new Fr(3n),
+    },
+group_balances_debt: {
+      slot: new Fr(4n),
     }
-      } as ContractStorageLayout<'admin' | 'group_members' | 'group_balances'>;
+      } as ContractStorageLayout<'admin' | 'group_members' | 'group_balances_credit' | 'group_balances_debt'>;
     }
     
 
@@ -138,9 +141,6 @@ ValueNote: {
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {
     
-    /** admin() */
-    admin: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
     /** compute_note_hash_and_optionally_a_nullifier(contract_address: struct, nonce: field, storage_slot: field, note_type_id: field, compute_nullifier: boolean, serialized_note: array) */
     compute_note_hash_and_optionally_a_nullifier: ((contract_address: AztecAddressLike, nonce: FieldLike, storage_slot: FieldLike, note_type_id: FieldLike, compute_nullifier: boolean, serialized_note: FieldLike[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -156,14 +156,23 @@ ValueNote: {
     /** make_payment(debtor: struct, creditor: struct, amount: field) */
     make_payment: ((debtor: AztecAddressLike, creditor: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** read_balance(creditor: struct, debtor: struct) */
-    read_balance: ((creditor: AztecAddressLike, debtor: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** read_balance_credit(creditor: struct, debtor: struct) */
+    read_balance_credit: ((creditor: AztecAddressLike, debtor: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** read_balance_debt(debtor: struct, creditor: struct) */
+    read_balance_debt: ((debtor: AztecAddressLike, creditor: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** read_total_balance(creditor: struct, debtor: struct) */
+    read_total_balance: ((creditor: AztecAddressLike, debtor: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** set_balance(creditor: struct, debtor: struct, amount: field) */
     set_balance: ((creditor: AztecAddressLike, debtor: AztecAddressLike, amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** setup_group_payments(creditor: struct, debtors: array, amount: field) */
     setup_group_payments: ((creditor: AztecAddressLike, debtors: AztecAddressLike[], amount: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** sync_notes() */
+    sync_notes: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 
   
